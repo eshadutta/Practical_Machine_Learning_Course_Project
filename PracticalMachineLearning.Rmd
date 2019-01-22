@@ -1,0 +1,49 @@
+## Download training and testing datasets
+url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(url, destfile = "training.csv")
+url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(url, destfile = "testing.csv")
+training <- read.csv("training.csv")
+testing <- read.csv("testing.csv") 
+
+### Clean training and testing data
+training_clean <- read.csv("training.csv", na.strings = c("NA", "#DIV/0!", "")) 
+testing_clean <- read.csv("testing.csv",  na.strings = c("NA", "#DIV/0!", ""))
+
+## Remove unnecessary parameters from data
+training_clean <- training_clean[, 7:160] 
+testing_clean  <- testing_clean[, 7:160]  
+valid_data  <- apply(!is.na(training_clean), 2, sum) > 19621  # which is the number of observations 
+training_clean <- training_clean[, valid_data] 
+testing_clean <- testing_clean[, valid_data] 
+
+### Seperate out data for cross-validation
+library(caret)
+inTrain <- createDataPartition(y=training_clean$classe, p=0.75, list=FALSE)
+train1<-training_clean[inTrain,]
+train2<-training_clean[-inTrain,]
+
+### Remove near zero variate data
+nzv <- nearZeroVar(train1) 
+if(length(nzv) > 0) {
+ train1 <- train1[, -nzv]
+ train2 <- train2[, -nzv]
+}
+
+### Build the model
+myModel <- train(classe ~ ., data=train1, method="rf")
+
+### Check the model on validation data
+predTest <- predict(myModel, newdata=train2)
+
+###Check the accuracy of the model
+confusionMatrix(predTest, train2$classe)
+
+### Predict the model on testing data
+predictions<-predict(myModel, newdata=testing_clean)
+testing$classe <- predictions
+
+###Ready for outputs
+testing_classe
+## [1] B A B A A E D B A A B C B A E E A B B B
+##Levels: A B C D E
